@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import ExitDialog from "@/components/ExitDialog";
 import ThemePickerModal from "@/components/ThemePickerModal";
 import LanguagePickerModal from "@/components/LanguagePickerModal";
-import { playPopSound } from "@/hooks/useAudio";
 import { useLanguage, type Language } from "@/contexts/LanguageContext";
 import NumatikWelcome, { type WelcomeLang } from "./NumatikWelcome";
 
@@ -37,7 +35,6 @@ const WelcomePage = () => {
   }, [language, setLanguage]);
 
   const handleStart = useCallback(() => {
-    playPopSound();
     setShowWelcome(false);
     setShowThemePicker(true);
   }, []);
@@ -50,10 +47,6 @@ const WelcomePage = () => {
   const handleLanguageClose = useCallback(() => {
     setShowLangPicker(false);
     setShowWelcome(true);
-  }, []);
-
-  const handleClose = useCallback(() => {
-    document.querySelector<HTMLButtonElement>("#btn-exit")?.click();
   }, []);
 
   const handleLangChange = useCallback((nextLanguage: WelcomeLang) => {
@@ -71,16 +64,12 @@ const WelcomePage = () => {
       {showWelcome && (
         <NumatikWelcome
           onStart={handleStart}
-          onClose={handleClose}
           lang={toWelcomeLang(language)}
           onLangChange={handleLangChange}
           academicYear={academicYear}
           langStorageKey="numatik_language"
         />
       )}
-      <div className="hidden">
-        <ExitDialog />
-      </div>
       <ThemePickerModal
         open={showThemePicker}
         onClose={handleThemeClose}

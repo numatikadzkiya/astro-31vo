@@ -22,7 +22,7 @@ const KritikSaranPage = () => {
   return (
     <div className="relative min-h-screen overflow-hidden gradient-space">
       <Starfield />
-      <PageNavigation />
+      <PageNavigation hideBackButton />
 
       <main className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-24 pt-24 sm:px-6 sm:pt-28">
         <header className="mx-auto mb-8 max-w-3xl text-center">

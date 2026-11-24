@@ -106,8 +106,8 @@ const getLanguageCardStyle = (language: Language, isActive: boolean, isDark: boo
 
 const createEarthTexture = () => {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 512;
+  canvas.width = 512;
+  canvas.height = 256;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Unable to create the globe texture canvas");
 
@@ -124,13 +124,13 @@ const createEarthTexture = () => {
   for (let latitude = -60; latitude <= 60; latitude += 30) {
     const y = ((90 - latitude) / 180) * canvas.height;
     context.beginPath();
-    context.ellipse(canvas.width / 2, y, canvas.width / 2, Math.max(12, Math.cos(latitude * Math.PI / 180) * 55), 0, 0, Math.PI * 2);
+    context.ellipse(canvas.width / 2, y, canvas.width / 2, Math.max(6, Math.cos(latitude * Math.PI / 180) * 28), 0, 0, Math.PI * 2);
     context.stroke();
   }
   for (let longitude = -60; longitude <= 60; longitude += 30) {
     const x = ((longitude + 180) / 360) * canvas.width;
     context.beginPath();
-    context.ellipse(x, canvas.height / 2, 55, canvas.height / 2, 0, 0, Math.PI * 2);
+    context.ellipse(x, canvas.height / 2, 28, canvas.height / 2, 0, 0, Math.PI * 2);
     context.stroke();
   }
 
@@ -143,7 +143,7 @@ const createEarthTexture = () => {
     [[0.75,0.43],[0.81,0.4],[0.85,0.45],[0.83,0.55],[0.8,0.63],[0.77,0.59],[0.74,0.51]],
     [[0.88,0.71],[0.91,0.69],[0.94,0.73],[0.92,0.78],[0.89,0.77]],
   ];
-  const land = context.createLinearGradient(0, 70, 0, 420);
+  const land = context.createLinearGradient(0, 35, 0, 210);
   land.addColorStop(0, "#a2c875");
   land.addColorStop(0.42, "#4e9a55");
   land.addColorStop(0.72, "#8cae58");
@@ -181,11 +181,11 @@ const createEarthTexture = () => {
     context.closePath();
   }
   context.clip();
-  for (let index = 0; index < 2800; index += 1) {
+  for (let index = 0; index < 900; index += 1) {
     const x = random() * canvas.width;
     const y = random() * canvas.height;
-    const size = 1 + random() * 4;
-    const warmTerrain = y < 175 || y > 330;
+    const size = 0.6 + random() * 2;
+    const warmTerrain = y < 88 || y > 165;
     context.fillStyle = warmTerrain
       ? `rgba(205,183,112,${0.08 + random() * 0.16})`
       : `rgba(195,232,138,${0.08 + random() * 0.18})`;
@@ -197,14 +197,14 @@ const createEarthTexture = () => {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
+  texture.anisotropy = 1;
   return texture;
 };
 
 const createCloudTexture = () => {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 512;
+  canvas.width = 512;
+  canvas.height = 256;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Unable to create the cloud texture canvas");
 
@@ -213,12 +213,12 @@ const createCloudTexture = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  context.filter = "blur(4px)";
-  for (let index = 0; index < 85; index += 1) {
+  context.filter = "blur(2px)";
+  for (let index = 0; index < 55; index += 1) {
     const centerX = random() * canvas.width;
-    const centerY = 65 + random() * 380;
-    const width = 25 + random() * 68;
-    const height = 5 + random() * 15;
+    const centerY = 32 + random() * 190;
+    const width = 12 + random() * 34;
+    const height = 2.5 + random() * 7.5;
     context.fillStyle = `rgba(235,249,255,${0.08 + random() * 0.12})`;
     context.beginPath();
     context.ellipse(centerX, centerY, width, height, (random() - 0.5) * 0.45, 0, Math.PI * 2);
@@ -240,7 +240,7 @@ const createCloudTexture = () => {
   context.filter = "none";
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
+  texture.anisotropy = 1;
   return texture;
 };
 
@@ -254,7 +254,7 @@ const LanguageGlobe = () => {
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
     } catch {
       setUnavailable(true);
       return;
@@ -264,7 +264,7 @@ const LanguageGlobe = () => {
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20);
     camera.position.z = 3.35;
 
-    const geometry = new THREE.SphereGeometry(1, 64, 48);
+    const geometry = new THREE.SphereGeometry(1, 48, 32);
     const material = new THREE.MeshStandardMaterial({
       map: createEarthTexture(),
       roughness: 0.96,
@@ -272,7 +272,7 @@ const LanguageGlobe = () => {
     });
     const globe = new THREE.Mesh(geometry, material);
     scene.add(globe);
-    const cloudsGeometry = new THREE.SphereGeometry(1.008, 64, 48);
+    const cloudsGeometry = new THREE.SphereGeometry(1.008, 48, 32);
     const cloudsMaterial = new THREE.MeshBasicMaterial({
       map: createCloudTexture(),
       transparent: true,
@@ -290,7 +290,8 @@ const LanguageGlobe = () => {
     rimLight.position.set(3, -0.5, -2);
     scene.add(rimLight);
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const pixelRatioCap = matchMedia("(max-width: 700px)").matches ? 1.25 : 1.5;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -303,22 +304,13 @@ const LanguageGlobe = () => {
       renderer.setSize(size, size, false);
       camera.aspect = 1;
       camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
     resize();
 
-    let animationFrame = 0;
-    const animate = () => {
-      globe.rotation.y += 0.0032;
-      clouds.rotation.y += 0.0037;
-      renderer.render(scene, camera);
-      animationFrame = window.requestAnimationFrame(animate);
-    };
-    animate();
-
     return () => {
-      window.cancelAnimationFrame(animationFrame);
       observer.disconnect();
       geometry.dispose();
       cloudsGeometry.dispose();
@@ -588,7 +580,7 @@ const LanguagePickerModal = ({ open, onClose }: Props) => {
       lang,
       x: 50 + Math.cos(radians) * 38,
       y: 50 + Math.sin(radians) * 29,
-      delay: index * 0.12,
+      delay: index * 0.025,
     };
   });
 
@@ -600,7 +592,7 @@ const LanguagePickerModal = ({ open, onClose }: Props) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.28 }}
+          transition={{ duration: 0.1 }}
           className="language-picker-root fixed inset-0 z-[90] flex flex-col"
         >
           {/* ── Top decorative area ── */}
@@ -647,8 +639,8 @@ const LanguagePickerModal = ({ open, onClose }: Props) => {
                     }}
                     transition={{
                       rotate: { duration: 42, repeat: Infinity, ease: "linear" },
-                      opacity: { delay, duration: 0.35 },
-                      scale: { duration: 0.35 },
+                      opacity: { delay, duration: 0.2 },
+                      scale: { duration: 0.2 },
                     }}
                     className={`language-orbit-greeting font-display font-bold text-xs select-none ${s.floatingWordColor} ${selected === lang.id ? "is-selected" : ""}`}
                   >
@@ -666,7 +658,7 @@ const LanguagePickerModal = ({ open, onClose }: Props) => {
                   className="language-greeting-bubble"
                   initial={{ opacity: 0, scale: 0.65, y: 22 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 280, damping: 16, delay: 0.12 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   style={{ transformOrigin: "left bottom" }}
                 >
                   {pickLang(LANGUAGE_GREETINGS, selected)}
@@ -677,7 +669,7 @@ const LanguagePickerModal = ({ open, onClose }: Props) => {
               <motion.p
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.02 }}
                 className={`font-display font-black text-lg tracking-widest ${s.topTextTitle}`}
               >
                 {t("selectLanguage").toUpperCase()}
@@ -703,10 +695,10 @@ const LanguagePickerModal = ({ open, onClose }: Props) => {
 
           {/* ── Bottom control panel ── */}
           <motion.div
-            initial={{ y: 80, opacity: 0 }}
+            initial={{ y: 24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.1 }}
+            exit={{ y: 24, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 600, damping: 40 }}
             className={`language-picker-panel relative z-20 border-t shadow-2xl ${s.panelBg} ${s.panelBorder}`}
           >
             {/* Drag handle */}

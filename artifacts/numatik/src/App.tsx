@@ -16,6 +16,7 @@ import { MusicProvider } from "@/contexts/MusicContext";
 import { FontProvider } from "@/contexts/FontContext";
 import { AnimationProvider } from "@/contexts/AnimationContext";
 import PageLoader from "@/components/PageLoader";
+import MenuMobileTabs, { type MenuMobileNavigationTab } from "@/components/MenuMobileTabs";
 import MenuSidebar from "@/components/MenuSidebar";
 import type { MenuSidebarTab } from "@/components/MenuSidebar";
 import { MENU_ITEMS } from "@/data/menuConfig";
@@ -1064,6 +1065,28 @@ const AppInner = () => {
     || activeMenuItem?.group === "more"
     ? activeMenuItem.group
     : "home";
+  const persistentMobileTab: MenuMobileNavigationTab | null = pathname === "/referensi"
+    ? "reference"
+    : pathname === "/tentang-aplikasi"
+      ? "about"
+      : pathname === "/kritik-saran"
+        ? "feedback"
+        : null;
+
+  const handlePersistentMobileTabSelect = (tab: MenuMobileNavigationTab) => {
+    if (tab === "home") {
+      navigate("/menu");
+    } else if (tab === "more") {
+      navigate("/menu", { state: { mobileTab: "more" } });
+    } else {
+      const path = tab === "reference"
+        ? "/referensi"
+        : tab === "about"
+          ? "/tentang-aplikasi"
+          : "/kritik-saran";
+      navigate(path, { state: { skipIntroAnimation: true } });
+    }
+  };
 
   useEffect(() => {
     trackPageView(pathname);
@@ -1092,7 +1115,10 @@ const AppInner = () => {
             onHomeClick={() => navigate("/menu")}
           />
         )}
-        <div className={activeMenuItem ? "menu-route-content" : undefined}>
+        <div className={[
+          activeMenuItem ? "menu-route-content" : "",
+          persistentMobileTab ? "has-persistent-mobile-tabs" : "",
+        ].filter(Boolean).join(" ") || undefined}>
         <Routes>
           <Route path="/" element={<WelcomePage />} />
           <Route path="/menu" element={<MenuPage />} />
@@ -2175,6 +2201,13 @@ const AppInner = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
         </div>
+        {persistentMobileTab && (
+          <MenuMobileTabs
+            activeTab={persistentMobileTab}
+            onSelect={handlePersistentMobileTabSelect}
+            className="menu-mobile-tabs-persistent"
+          />
+        )}
         </div>
       </Suspense>
     </>

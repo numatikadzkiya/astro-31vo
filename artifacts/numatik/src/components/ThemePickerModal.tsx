@@ -197,13 +197,11 @@ const ThemePickerModal = ({ open, onClose, onContinue }: Props) => {
   const handleContinue = () => {
     playPopSound();
     setConfirming(true);
-    setTimeout(() => {
-      if (onContinue) {
-        onContinue();
-      } else {
-        navigate("/menu");
-      }
-    }, 350);
+    if (onContinue) {
+      onContinue();
+    } else {
+      navigate("/menu");
+    }
   };
 
   const handleSkip = () => {
@@ -225,7 +223,7 @@ const ThemePickerModal = ({ open, onClose, onContinue }: Props) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.28 }}
+          transition={{ duration: 0.1 }}
           className="theme-picker-root fixed inset-0 z-[80] flex flex-col"
           data-theme={selected}
         >
@@ -237,7 +235,7 @@ const ThemePickerModal = ({ open, onClose, onContinue }: Props) => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.1 }}
                 className="absolute inset-0"
               >
                 <FullMenuPreview theme={selected} />
@@ -270,10 +268,10 @@ const ThemePickerModal = ({ open, onClose, onContinue }: Props) => {
 
           {/* ── Bottom control panel ────────────────────────────────── */}
           <motion.div
-            initial={{ y: 80, opacity: 0 }}
+            initial={{ y: 24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.1 }}
+            exit={{ y: 24, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 600, damping: 40 }}
             className="theme-picker-panel relative z-20 border-t shadow-2xl shadow-black/30"
             style={{ background: PANEL_BG[selected], borderColor: CARD[selected].border }}
           >

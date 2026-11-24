@@ -50,7 +50,7 @@ const TentangAplikasiPage = () => {
         }
       `}</style>
 
-      <PageNavigation />
+      <PageNavigation hideBackButton />
 
       <div className="relative z-10 max-w-4xl w-full px-4 py-10">
         <div className="text-center mb-8 animate-scale-in">
@@ -98,7 +98,7 @@ const TentangAplikasiPage = () => {
               <div className="flex-1">
                 <p className="font-display text-xs font-bold tracking-widest uppercase text-cyan-400 mb-0.5">{t("tentang.versionLabel")}</p>
                 <p className="font-display text-lg font-black text-white">
-                  Numatik Versi 2.2
+                  Numatik Versi 2.4 (Edisi Kelima Belas)
                 </p>
                 <p className="text-white/50 font-body text-xs mt-0.5">{t("tentang.versionUpdateNote")}</p>
               </div>

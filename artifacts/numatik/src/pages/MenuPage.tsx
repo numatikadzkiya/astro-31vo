@@ -5,20 +5,15 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   ArrowUpRight,
-  BookMarked,
   CircleHelp,
-  Ellipsis,
-  Home,
   Loader2,
   Megaphone,
-  MessageSquare,
-  Rocket,
   Search,
   X,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import Starfield, { StarfieldVisibilityContext } from "@/components/Starfield";
 import MenuHeaderControls from "@/components/MenuHeaderControls";
+import MenuMobileTabs, { type MenuMobileNavigationTab } from "@/components/MenuMobileTabs";
 import MenuSidebar from "@/components/MenuSidebar";
 import ExitDialog from "@/components/ExitDialog";
 import { MENU_ITEMS, MENU_SECTIONS, type MenuGroup, type MenuItemConfig } from "@/data/menuConfig";
@@ -29,7 +24,6 @@ import { useSound } from "@/contexts/SoundContext";
 
 type DeepSearchItem = { path: string; title: string; content: string };
 type MobileTab = "home" | "learn" | "practice" | "tools" | "more";
-type MobileNavigationTab = "home" | "reference" | "about" | "feedback" | "more";
 
 const RECENT_STORAGE_KEY = "numatik-menu-recent";
 
@@ -91,19 +85,6 @@ function isHomeMenuItem(item: MenuItemConfig): boolean {
   return item.key !== "ujiMandiri";
 }
 
-const TAB_ITEMS: ReadonlyArray<{
-  id: MobileNavigationTab;
-  icon: LucideIcon;
-  labelKey: string;
-  ariaLabelKey?: string;
-}> = [
-  { id: "home", icon: Home, labelKey: "menu.homeTab" },
-  { id: "reference", icon: BookMarked, labelKey: "menu.mobileReferenceTab", ariaLabelKey: "menuItems.reference.label" },
-  { id: "about", icon: Rocket, labelKey: "menu.mobileAboutTab", ariaLabelKey: "menuItems.about.label" },
-  { id: "feedback", icon: MessageSquare, labelKey: "menu.mobileFeedbackTab", ariaLabelKey: "menuItems.kritikSaran.label" },
-  { id: "more", icon: Ellipsis, labelKey: "menu.moreTab" },
-];
-
 const MenuPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -112,7 +93,7 @@ const MenuPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [deepIndex, setDeepIndex] = useState<DeepSearchItem[] | null>(deepIndexCache);
   const [deepIndexLoading, setDeepIndexLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<MobileTab>("home");
+  const [activeTab, setActiveTab] = useState<MobileTab>(() => location.state?.mobileTab === "more" ? "more" : "home");
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [guideSeen, setGuideSeen] = useState(hasSeenGuide);
   const [isPageVisible, setIsPageVisible] = useState(() => !document.hidden);
@@ -251,7 +232,7 @@ const MenuPage = () => {
     document.getElementById("menu-desktop-content")?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleMobileTabClick = (tab: MobileNavigationTab) => {
+  const handleMobileTabClick = (tab: MenuMobileNavigationTab) => {
     if (tab === "reference") {
       handleOpenPath("/referensi", { skipIntroAnimation: true });
       return;
@@ -616,24 +597,10 @@ const MenuPage = () => {
           </div>
         </main>
 
-        <nav className="menu-mobile-tabs" aria-label={t("menu.homeTab")}>
-          {TAB_ITEMS.map(({ id, icon: Icon, labelKey, ariaLabelKey }) => (
-            <button
-              key={id}
-              type="button"
-              data-tab={id}
-              aria-current={activeTab === id ? "page" : undefined}
-              aria-label={t(ariaLabelKey ?? labelKey)}
-              onClick={() => handleMobileTabClick(id)}
-              className={`menu-mobile-tab menu-focusable${activeTab === id ? " is-active" : ""}`}
-            >
-              <span className="menu-mobile-tab-icon">
-                <Icon aria-hidden="true" className="h-5 w-5" />
-              </span>
-              <span>{t(labelKey)}</span>
-            </button>
-          ))}
-        </nav>
+        <MenuMobileTabs
+          activeTab={activeTab === "home" || activeTab === "more" ? activeTab : null}
+          onSelect={handleMobileTabClick}
+        />
         {activeTab === "more" && !normalizedQuery && renderMoreSheet()}
       </div>
 

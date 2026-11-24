@@ -5,7 +5,6 @@
  *   import NumatikWelcome from "./NumatikWelcome";
  *   <NumatikWelcome
  *      onStart={() => navigate("/menu")}   // dipanggil setelah efek masuk-dimensi selesai
- *      onClose={() => ...}                 // tombol X (opsional)
  *      academicYear="2026 – 2027"          // opsional, ambil dari sumber aplikasi
  *   />
  *   Tanpa onStart, komponen menampilkan overlay "Selamat belajar!" (mode demo).
@@ -13,7 +12,9 @@
  * Pasang NumatikWelcome.tsx dan numatik-welcome.css di folder yang sama.
  * Semua CSS di-scope ke .nmw sehingga tidak mengubah gaya halaman lain.
  */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import ExitDialog from "@/components/ExitDialog";
+import { playPopSound } from "@/hooks/useAudio";
 import "./numatik-welcome.css";
 
 export type WelcomeLang = "id" | "en" | "ms" | "ja" | "zh" | "ru";
@@ -81,34 +82,28 @@ const RINGS = [
   { k: "mars", r: 49, t: 30, d: -20 }, { k: "belt", r: 56, t: 90, d: 0 }, { k: "jupiter", r: 67, t: 48, d: -14 },
   { k: "saturn", r: 79, t: 66, d: -40 }, { k: "uranus", r: 89, t: 90, d: -30 }, { k: "neptune", r: 99, t: 120, d: -70 },
 ];
-const SYMBOLS = ["π", "√", "∑", "∞", "△", "□", "∠", "÷", "×", "%", "≈", "x²", "∫", "θ"];
-
 export interface NumatikWelcomeProps {
   onStart?: () => void;
-  onClose?: () => void;
   lang?: WelcomeLang;
   onLangChange?: (l: WelcomeLang) => void;
   academicYear?: string;
   langStorageKey?: string;
-  muteStorageKey?: string;
 }
 
 export default function NumatikWelcome({
-  onStart, onClose, lang: langProp, onLangChange,
-  academicYear = "2026 – 2027", langStorageKey = "numatik-lang", muteStorageKey = "numatik-mute",
+  onStart, lang: langProp, onLangChange,
+  academicYear = "2026 – 2027", langStorageKey = "numatik-lang",
 }: NumatikWelcomeProps) {
   const [lang, setLangState] = useState<WelcomeLang>(() => langProp ?? detectLang(langStorageKey));
-  const [muted, setMuted] = useState(() => store.get(muteStorageKey) === "1");
   const [warping, setWarping] = useState(false);
   const [arrived, setArrived] = useState(false);
 
-  const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const modeRef = useRef(0);   // 0 diam, 1 hiperspace, 2 tiba
+  const modeRef = useRef(0);   // 0 statis, 1 hiperspace
   const t0Ref = useRef(0);
   const mRef = useRef(1);      // pengali kecepatan bintang
   const acRef = useRef<AudioContext | null>(null);
-  const mutedRef = useRef(muted);
+  const wakeFrameRef = useRef<() => void>(() => {});
   const timers = useRef<number[]>([]);
   const onStartRef = useRef(onStart);
   onStartRef.current = onStart;
@@ -116,19 +111,6 @@ export default function NumatikWelcome({
   useEffect(() => { if (langProp) setLangState(langProp); }, [langProp]);
   const setLang = (l: WelcomeLang) => { setLangState(l); store.set(langStorageKey, l); onLangChange?.(l); };
   const d = L[lang];
-
-  const symbols = useMemo(
-    () =>
-      Array.from({ length: typeof window !== "undefined" && window.innerWidth < 700 ? 10 : 16 }, (_, i) => ({
-        s: SYMBOLS[i % SYMBOLS.length],
-        left: Math.random() * 100,
-        size: 16 + Math.random() * 32,
-        dur: 24 + Math.random() * 26,
-        delay: -Math.random() * 45,
-        dx: Math.round(Math.random() * 90 - 45),
-      })),
-    []
-  );
 
   const finish = () => {
     buzz([60]);
@@ -138,44 +120,41 @@ export default function NumatikWelcome({
   const finishRef = useRef(finish);
   finishRef.current = finish;
 
-  /* ===== tilt 3D (pointer + gyro), langsung ke CSS variable tanpa re-render ===== */
-  useEffect(() => {
-    const el = rootRef.current!;
-    const tilt = (x: number, y: number) => {
-      el.style.setProperty("--ry", (x * 9).toFixed(2) + "deg");
-      el.style.setProperty("--rx", (-y * 7).toFixed(2) + "deg");
-    };
-    const onGyro = (e: DeviceOrientationEvent) => {
-      if (e.gamma == null || e.beta == null) return;
-      tilt(Math.max(-1, Math.min(1, e.gamma / 35)) / 2, Math.max(-1, Math.min(1, (e.beta - 45) / 35)) / 2);
-    };
-    addEventListener("deviceorientation", onGyro);
-    return () => { removeEventListener("deviceorientation", onGyro); };
-  }, []);
-
-  /* ===== langit 3D + terowongan cahaya ===== */
+  /* ===== langit statis + terowongan cahaya saat mulai ===== */
   useEffect(() => {
     const cv = canvasRef.current!;
     const cx = cv.getContext("2d")!;
-    const still = matchMedia("(prefers-reduced-motion:reduce)").matches;
+    const mobile = matchMedia("(pointer: coarse), (max-width: 700px)").matches;
     const speed = 0.0009, hues = [190, 200, 210, 270, 300, 50];
-    let W = 0, H = 0, dpr = 1, raf = 0, alive = true;
-    const size = () => { dpr = window.devicePixelRatio || 1; W = cv.width = cv.clientWidth * dpr; H = cv.height = cv.clientHeight * dpr; };
+    let W = 0, H = 0, dpr = 1, raf = 0, alive = true, lastFrame = 0;
+    const size = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : Number.POSITIVE_INFINITY);
+      W = cv.width = cv.clientWidth * dpr;
+      H = cv.height = cv.clientHeight * dpr;
+    };
     size();
-    const N = Math.min(380, Math.floor((cv.clientWidth * cv.clientHeight) / 3800) + 110);
-    const stars = Array.from({ length: N + 240 }, (_, i) => ({
+    const N = mobile
+      ? Math.min(150, Math.floor((cv.clientWidth * cv.clientHeight) / 7000) + 60)
+      : Math.min(380, Math.floor((cv.clientWidth * cv.clientHeight) / 3800) + 110);
+    const stars = Array.from({ length: N + (mobile ? 80 : 240) }, (_, i) => ({
       x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: Math.random(),
       h: i < N ? (Math.random() < 0.2 ? 190 : Math.random() < 0.1 ? 270 : 210) : hues[i % 6], beam: i >= N,
     }));
     const frame = (now: number) => {
       if (!alive) return;
+      raf = 0;
+      if (mobile && now - lastFrame < 1000 / 30) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      lastFrame = now;
       let m = mRef.current;
+      let completed = false;
       if (modeRef.current === 1) {
-        const t = Math.min(1, (now - t0Ref.current) / 1900);
-        m = 1 + 70 * t * t;
-        if (t >= 1) { modeRef.current = 2; finishRef.current(); }
-      } else if (modeRef.current === 2) m += (7 - m) * 0.04;
-      else m += (1 - m) * 0.08;
+        const t = Math.min(1, (now - t0Ref.current) / 2200);
+        m = 1 + 110 * t * t;
+        completed = t >= 1;
+      }
       mRef.current = m;
       const fast = m > 3;
       cx.globalCompositeOperation = "source-over";
@@ -192,7 +171,7 @@ export default function NumatikWelcome({
       for (const s of stars) {
         if (s.beam && !fast) continue;
         const pz = s.z + speed * m * (fast ? 2.4 : 0);
-        s.z -= speed * m;
+        if (modeRef.current) s.z -= speed * m;
         if (s.z <= 0.02) { s.z = 1; s.x = Math.random() * 2 - 1; s.y = Math.random() * 2 - 1; continue; }
         const k = 1 / s.z, x = W / 2 + s.x * f * k * 0.25, y = H / 2 + s.y * f * k * 0.25;
         const a = Math.min(1, (1 - s.z) * 1.6 + 0.15), r = Math.max(0.4, (1 - s.z) * 2.2) * dpr;
@@ -206,21 +185,36 @@ export default function NumatikWelcome({
           cx.beginPath(); cx.arc(x, y, r, 0, 6.283); cx.fill();
         }
       }
-      if (!still || modeRef.current) raf = requestAnimationFrame(frame);
+      if (completed) {
+        modeRef.current = 0;
+        mRef.current = 1;
+        finishRef.current();
+      }
+      if (modeRef.current === 1) raf = requestAnimationFrame(frame);
     };
+    const requestFrame = () => {
+      if (alive && !raf) raf = requestAnimationFrame(frame);
+    };
+    wakeFrameRef.current = requestFrame;
+    const resize = () => { size(); requestFrame(); };
     raf = requestAnimationFrame(frame);
-    addEventListener("resize", size);
-    return () => { alive = false; cancelAnimationFrame(raf); removeEventListener("resize", size); };
+    addEventListener("resize", resize);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      wakeFrameRef.current = () => {};
+      removeEventListener("resize", resize);
+    };
   }, []);
 
   /* ===== bersihkan audio & timer saat unmount ===== */
   useEffect(() => () => { timers.current.forEach(clearTimeout); acRef.current?.close().catch(() => {}); acRef.current = null; }, []);
 
   const whoosh = () => {
-    if (mutedRef.current) return;
     try {
       const Ctor = window.AudioContext || (window as any).webkitAudioContext;
       const ac = (acRef.current = acRef.current || new Ctor());
+      if (ac.state === "suspended") ac.resume().catch(() => {});
       const t = ac.currentTime, n = ac.sampleRate * 2.4, buf = ac.createBuffer(1, n, ac.sampleRate), data = buf.getChannelData(0);
       for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
       const s = ac.createBufferSource(); s.buffer = buf;
@@ -234,32 +228,23 @@ export default function NumatikWelcome({
       o.connect(og); og.connect(ac.destination); o.start(t); o.stop(t + 2.3);
     } catch { /* suara opsional */ }
   };
-  const toggleMute = () => {
-    const v = !mutedRef.current; mutedRef.current = v; setMuted(v); store.set(muteStorageKey, v ? "1" : "0");
-  };
 
   const handleGo = () => {
     if (modeRef.current) return;
-    try {
-      const DOE = (window as any).DeviceOrientationEvent;
-      if (DOE && typeof DOE.requestPermission === "function") DOE.requestPermission().catch(() => {});
-    } catch { /* abaikan */ }
+    modeRef.current = 1;
+    playPopSound();
     setWarping(true); whoosh(); buzz(20);
     if (matchMedia("(prefers-reduced-motion:reduce)").matches) { finish(); return; }
-    modeRef.current = 1; t0Ref.current = performance.now();
-    timers.current.push(window.setTimeout(() => buzz([40, 30, 80]), 1500));
+    t0Ref.current = performance.now();
+    wakeFrameRef.current();
+    timers.current.push(window.setTimeout(() => buzz([40, 30, 80]), 1600));
   };
   const replay = () => { modeRef.current = 0; setArrived(false); setWarping(false); };
 
   return (
-    <div ref={rootRef} className={"nmw" + (warping ? " warping" : "")} lang={lang}>
+    <div className={"nmw" + (warping ? " warping" : "")} lang={lang}>
       <canvas ref={canvasRef} className="sky" />
       <div className="nebula" />
-      <div className="math" aria-hidden="true">
-        {symbols.map((m, i) => (
-          <span key={i} style={S({ left: m.left + "%", fontSize: m.size + "px", animationDuration: m.dur + "s", animationDelay: m.delay + "s", "--dx": m.dx + "px", opacity: 0 })}>{m.s}</span>
-        ))}
-      </div>
 
       <main className="app">
         <nav className="langs" aria-label="Language">
@@ -267,9 +252,7 @@ export default function NumatikWelcome({
             <button key={k} aria-pressed={k === lang} onClick={() => setLang(k)}>{L[k].n}</button>
           ))}
         </nav>
-        <button className="mute" aria-label="Sound" onClick={toggleMute}>{muted ? "🔇" : "🔊"}</button>
-        <button className="close" aria-label="Close" onClick={onClose}>✕</button>
-
+        <ExitDialog className="nmw-exit-button" />
         <section className="stage">
           <div className="copy">
             <div className="head">
@@ -306,7 +289,12 @@ export default function NumatikWelcome({
           </div>
         </section>
 
-        <div className="ticker"><div>{("✨ " + d.t + " ✨ ").repeat(3)}</div></div>
+        <div className="ticker">
+          <div className="ticker-track" aria-hidden="true">
+            <span>{"✨ " + d.t + " ✨ "}</span>
+            <span>{"✨ " + d.t + " ✨ "}</span>
+          </div>
+        </div>
       </main>
 
       {!onStart && (

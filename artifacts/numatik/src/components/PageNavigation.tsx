@@ -9,11 +9,12 @@ interface PageNavigationProps {
   prevPath?: string;
   nextPath?: string;
   hidden?: boolean;
+  hideBackButton?: boolean;
 }
 
 export const PageNavigationVisibilityContext = createContext(true);
 
-const PageNavigation = ({ prevPath, nextPath, hidden = false }: PageNavigationProps) => {
+const PageNavigation = ({ prevPath, nextPath, hidden = false, hideBackButton = false }: PageNavigationProps) => {
   const isVisible = useContext(PageNavigationVisibilityContext);
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -35,9 +36,9 @@ const PageNavigation = ({ prevPath, nextPath, hidden = false }: PageNavigationPr
       >
         <button
           onClick={() => { playPopSound(); resolvedPrevPath ? navigate(resolvedPrevPath) : navigate(-1); }}
-          className="w-11 h-11 rounded-full bg-card/80 backdrop-blur border border-border 
-            flex items-center justify-center text-primary hover:border-primary/60 
-            hover:box-glow-cyan transition-all duration-300 cursor-pointer"
+          className={`w-11 h-11 rounded-full bg-card/80 backdrop-blur border border-border
+            flex items-center justify-center text-primary hover:border-primary/60
+            hover:box-glow-cyan transition-all duration-300 cursor-pointer${hideBackButton ? " menu-page-nav-back-hidden-mobile" : ""}`}
           title={t("nav.back")}
         >
           <ArrowLeft className="w-5 h-5" />
@@ -45,8 +46,8 @@ const PageNavigation = ({ prevPath, nextPath, hidden = false }: PageNavigationPr
         {nextPath && (
           <button
             onClick={() => { playPopSound(); navigate(nextPath); }}
-            className="w-11 h-11 rounded-full bg-card/80 backdrop-blur border border-border 
-              flex items-center justify-center text-primary hover:border-primary/60 
+            className="w-11 h-11 rounded-full bg-card/80 backdrop-blur border border-border
+              flex items-center justify-center text-primary hover:border-primary/60
               hover:box-glow-cyan transition-all duration-300 cursor-pointer"
             title={t("nav.next")}
           >
